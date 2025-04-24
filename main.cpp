@@ -103,6 +103,7 @@ void createHooks() {
 	ReplaceWithNoOp(0x004021f3, 6);
 	ReplaceWithNoOp(0x00402207, 12);
 	ReplaceWithNoOp(0x00402227, 6);
+	ReplaceWithNoOp(0x0043cbea, 0x0043cc5 - 0x0043cbea + 1);
 
     HookFunction(pDirect3DInitFn, (DWORD)Direct3DInitHook, 5);
 }
