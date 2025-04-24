@@ -1,0 +1,2 @@
+# trucker-hook
+A simple hook for the game Trucker that allows you to force a custom screen resolution. Works by injecting a custom DLL in place of ```d3d8.dll```. Compatible with the .exe with MD5 hash ```...e9bace1c```. Work in progress!
