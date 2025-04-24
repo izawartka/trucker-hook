@@ -1,73 +1,25 @@
-#include <windows.h>
-#include <cstdio>
-#include <stdio.h>
-#include <string>
+#include "common.h"
+#include "config.h"
 
-#define DEFAULT_WINDOW_WIDTH 1280
-#define DEFAULT_WINDOW_HEIGHT 720
+#define DEFAULT_SCREEN_WIDTH 1280
+#define DEFAULT_SCREEN_HEIGHT 720
+#define DEFAULT_SCREEN_BITDEPTH 32
 
 static DWORD pDirect3DInitFn = 0x004400a2;
 static DWORD pScreenWidth = 0x006d196c;
 static DWORD pScreenHeight = 0x006d1968;
+static DWORD pScreenBitdepth = 0x006d1970;
+static DWORD pScreenUIScale = 0x006d1974;
 
 const char* SECTION = "Screen";
 const char* WIDTH_KEY = "Width";
 const char* HEIGHT_KEY = "Height";
+const char* BITDEPTH_KEY = "BitDepth";
 
-int windowWidth = DEFAULT_WINDOW_WIDTH;
-int windowHeight = DEFAULT_WINDOW_HEIGHT;
-
-std::string GetConfigPath() {
-	CHAR fullPath[MAX_PATH];
-	GetModuleFileNameA(nullptr, fullPath, MAX_PATH);
-
-	std::string path(fullPath);
-	size_t pos = path.find_last_of("\\/");
-	if (pos != std::string::npos) {
-		path = path.substr(0, pos + 1);
-	}
-	else {
-		path = ".\\";
-	}
-
-	return path + "hook.cfg";
-}
-
-bool ReadIntFromConfig(const char* section, const char* key, int& value) {
-	char buffer[32];
-	GetPrivateProfileStringA(section, key, "", buffer, sizeof(buffer), GetConfigPath().c_str());
-
-	if (strlen(buffer) == 0) {
-		return false;
-	}
-
-	try {
-		value = std::stoi(buffer);
-	}
-	catch (...) {
-		return false;
-	}
-
-	return true;
-}
-
-void WriteIntToConfig(const char* section, const char* key, int value) {
-	char buffer[32];
-	sprintf_s(buffer, "%d", value);
-	WritePrivateProfileStringA(section, key, buffer, GetConfigPath().c_str());
-}
-
-int ReadOrDefaultIntFromConfig(const char* section, const char* key, int defaultValue) {
-	int value;
-	bool success = ReadIntFromConfig(section, key, value);
-
-	if (!success) {
-		value = defaultValue;
-		WriteIntToConfig(section, key, defaultValue);
-	}
-
-	return value;
-}
+int screenWidth = DEFAULT_SCREEN_WIDTH;
+int screenHeight = DEFAULT_SCREEN_HEIGHT;
+int screenBitdepth = DEFAULT_SCREEN_BITDEPTH;
+float screenUIScale;
 
 static __declspec(naked) void Direct3DInitHook(void) {
     __asm {
@@ -80,8 +32,10 @@ static __declspec(naked) void Direct3DInitHook(void) {
     }
 
     // MessageBox(NULL, "Hello", "Seuko", 0);
-	*(int*)pScreenWidth = windowWidth;
-	*(int*)pScreenHeight = windowHeight;
+	*(int*)pScreenWidth = screenWidth;
+	*(int*)pScreenHeight = screenHeight;
+	*(int*)pScreenBitdepth = screenBitdepth;
+	*(float*)pScreenUIScale = screenUIScale;
 
 	__asm {
 		MOV EAX, pDirect3DInitFn
@@ -124,9 +78,31 @@ BOOL HookFunction(const DWORD originalFn, DWORD hookFn, size_t copyBytes) {
 	return PrimitiveHookFunction(originalFn, hookFn, copyBytes);
 }
 
+BOOL ReplaceWithNoOp(const DWORD address, size_t bytes) {
+	DWORD OldProtection = { 0 };
+	BOOL success = VirtualProtectEx(GetCurrentProcess(), (LPVOID)address, bytes, PAGE_EXECUTE_READWRITE, &OldProtection);
+	if (!success) {
+		DWORD error = GetLastError();
+		return 0;
+	}
+
+	for (size_t i = 0; i < bytes; i++) {
+		*(BYTE*)((LPBYTE)address + i) = 0x90;
+	}
+}
+
 void createHooks() {
-	windowWidth = ReadOrDefaultIntFromConfig(SECTION, WIDTH_KEY, DEFAULT_WINDOW_WIDTH);
-	windowHeight = ReadOrDefaultIntFromConfig(SECTION, HEIGHT_KEY, DEFAULT_WINDOW_HEIGHT);
+	// read values from config file
+	Config::ReadOrDefaultFromConfig(SECTION, WIDTH_KEY, screenWidth, DEFAULT_SCREEN_WIDTH);
+	Config::ReadOrDefaultFromConfig(SECTION, HEIGHT_KEY, screenHeight, DEFAULT_SCREEN_HEIGHT);
+	Config::ReadOrDefaultFromConfig(SECTION, BITDEPTH_KEY, screenBitdepth, DEFAULT_SCREEN_BITDEPTH);
+	screenUIScale = screenHeight / 3.0f * 4.0f * 0.0009765625f;
+	
+	// disable setting resolution, bitdepth & ui scale by the game
+	ReplaceWithNoOp(0x00401edb, 11);
+	ReplaceWithNoOp(0x004021f3, 6);
+	ReplaceWithNoOp(0x00402207, 12);
+	ReplaceWithNoOp(0x00402227, 6);
 
     HookFunction(pDirect3DInitFn, (DWORD)Direct3DInitHook, 5);
 }

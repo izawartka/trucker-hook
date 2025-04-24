@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(d3d8_hook LANGUAGES CXX)
 
-add_library(d3d8 SHARED main.cpp d3d8.def)
+add_library(d3d8 SHARED d3d8.def "main.cpp" "config.cpp")
 
 # 32-bit target
 set_target_properties(d3d8 PROPERTIES
