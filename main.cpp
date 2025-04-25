@@ -99,13 +99,22 @@ void createHooks() {
 	screenUIScale = screenHeight / 3.0f * 4.0f * 0.0009765625f;
 	
 	// disable setting resolution, bitdepth & ui scale by the game
-	ReplaceWithNoOp(0x00401edb, 11);
-	ReplaceWithNoOp(0x004021f3, 6);
-	ReplaceWithNoOp(0x00402207, 12);
-	ReplaceWithNoOp(0x00402227, 6);
-	ReplaceWithNoOp(0x0043cbea, 0x0043cc5 - 0x0043cbea + 1);
+	ReplaceWithNoOp(0x00401edb, 11); // shows current screen width, height, bitdepth in the start menu
+	ReplaceWithNoOp(0x004021f3, 6); // sets screen height from the start menu
+	ReplaceWithNoOp(0x00402207, 12); // sets screen width & bitdepth from the start menu
+	ReplaceWithNoOp(0x00402227, 6); // calculates ui scale from the start menu
 
-    HookFunction(pDirect3DInitFn, (DWORD)Direct3DInitHook, 5);
+	ReplaceWithNoOp(0x0043cc05, 5); // loads screen width from config
+	ReplaceWithNoOp(0x0043cc25, 5); // loads screen height from config
+	ReplaceWithNoOp(0x0043cc52, 5); // loads screen bitdepth from config
+	ReplaceWithNoOp(0x0043da62, 6); // calculates ui scale from config
+
+	*(int*)pScreenWidth = screenWidth;
+	*(int*)pScreenHeight = screenHeight;
+	*(int*)pScreenBitdepth = screenBitdepth;
+	*(float*)pScreenUIScale = screenUIScale;
+
+    //HookFunction(pDirect3DInitFn, (DWORD)Direct3DInitHook, 5);
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved) {
