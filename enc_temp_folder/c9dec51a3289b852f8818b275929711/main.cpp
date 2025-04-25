@@ -123,12 +123,6 @@ BOOL ReplaceWithNoOp(const DWORD address, size_t bytes) {
 }
 
 void createHooks() {
-	// read values from config file
-	Config::ReadOrDefaultFromConfig(SECTION, WIDTH_KEY, screenWidth, DEFAULT_SCREEN_WIDTH);
-	Config::ReadOrDefaultFromConfig(SECTION, HEIGHT_KEY, screenHeight, DEFAULT_SCREEN_HEIGHT);
-	Config::ReadOrDefaultFromConfig(SECTION, BITDEPTH_KEY, screenBitdepth, DEFAULT_SCREEN_BITDEPTH);
-	screenUIScale = screenHeight / 3.0f * 4.0f * 0.0009765625f;
-
 	// disable setting screen options (width, height, bitdepth) & ui scale by the game
 	ReplaceWithNoOp(0x004021f3, 6);	 // sets screen height from the start menu
 	ReplaceWithNoOp(0x00402207, 12); // sets screen width & bitdepth from the start menu
@@ -141,8 +135,13 @@ void createHooks() {
 
 	PrimitiveHookFunction(pStartScreenOptionsList, (DWORD)SkipScreenOptionsListHook, 5);
 	//HookFunction(pDirect3DInitFn, (DWORD)Direct3DInitHook, 5);
+	
+	// read values from config file
+	Config::ReadOrDefaultFromConfig(SECTION, WIDTH_KEY, screenWidth, DEFAULT_SCREEN_WIDTH);
+	Config::ReadOrDefaultFromConfig(SECTION, HEIGHT_KEY, screenHeight, DEFAULT_SCREEN_HEIGHT);
+	Config::ReadOrDefaultFromConfig(SECTION, BITDEPTH_KEY, screenBitdepth, DEFAULT_SCREEN_BITDEPTH);
+	screenUIScale = screenHeight / 3.0f * 4.0f * 0.0009765625f;
 
-	// inject values to the game
 	*(int*)pScreenWidth = screenWidth;
 	*(int*)pScreenHeight = screenHeight;
 	*(int*)pScreenBitdepth = screenBitdepth;
