@@ -211,11 +211,11 @@ void createHooks() {
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved) {
-    if (reason == DLL_PROCESS_ATTACH) {
-        DisableThreadLibraryCalls(hModule);
-        CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)createHooks, NULL, 0, NULL);
-    }
-    return TRUE;
+	if (reason == DLL_PROCESS_ATTACH) {
+		DisableThreadLibraryCalls(hModule);
+		CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)createHooks, NULL, 0, NULL);
+	}
+	return TRUE;
 }
 
 typedef void* (__stdcall* tDirect3DCreate8)(UINT);
