@@ -5,15 +5,17 @@
 #define DEFAULT_SCREEN_HEIGHT 720
 #define DEFAULT_SCREEN_BITDEPTH 32
 
-// stretched - (0 = left side of the screen, 1000 = right side of the screen)
-// left aligned (original) - (0 = left side of the screen, 1000 != right side of the screen)
-// right aligned - (0 != left side of the screen, 1000 = right side of the screen)
+// stretched - (0 = left side of the screen, 1024 = right side of the screen)
+// left aligned (original) - (0 = left side of the screen, 1024 != right side of the screen)
+// right aligned - (0 != left side of the screen, 1024 = right side of the screen)
 #define SCALED_X(x) (screenUIWidthScale * (x)) // stretched scaling
 #define SCALED_Y(y) (screenUIScale * (y)) // left aligned (original) scaling
-#define SCALED_V(x) (SCALED_X(1000) - SCALED_Y(1000 - x)) // right aligned scaling
+#define SCALED_V(x) (screenUIScale * x + rightSideShift) // right aligned scaling
+#define SCALED_C(x) (screenUIScale * x + halfRightSideShift) // centered scaling
 #define SCALED_RECTS(x1, y1, x2, y2) SCALED_X(x1), SCALED_Y(y1), SCALED_X(x2), SCALED_Y(y2) // stretched rect scaling
 #define SCALED_RECTO(x1, y1, x2, y2) SCALED_Y(x1), SCALED_Y(y1), SCALED_Y(x2), SCALED_Y(y2) // left aligned (original) rect scaling
 #define SCALED_RECTV(x1, y1, x2, y2) SCALED_V(x1), SCALED_Y(y1), SCALED_V(x2), SCALED_Y(y2) // right aligned rect scaling
+#define SCALED_RECTC(x1, y1, x2, y2) SCALED_C(x1), SCALED_Y(y1), SCALED_C(x2), SCALED_Y(y2) // centered rect scaling
 
 static DWORD pScreenWidth = 0x006d196c;
 static DWORD pScreenHeight = 0x006d1968;
@@ -25,7 +27,7 @@ static DWORD pScreenOptionsListReturn = 0x00401ee6;
 
 static DWORD pFixUIPlacementJump = 0x0040c888;
 static DWORD pFixUISomeStruct = 0x006d1af8;
-static DWORD pFixUIPlacementReturn = 0x0040cc0f;
+static DWORD pFixUIPlacementReturn = 0x0040cd74;
 
 static DWORD pFixGaugesPlacementSomeFn = 0x0044b690;
 static DWORD pFixGaugesPlacementCalls[] = {
@@ -54,6 +56,10 @@ static DWORD pFixRaceTextPlacementCalls[] = {
 typedef void(__thiscall* DrawTexture)(int param_1_00, char* path, float x1, float y1, float x2, float y2, int flags);
 static DrawTexture fnDrawTexture = (DrawTexture)0x0044c3d0;
 
+//int __thiscall drawPanel(UIPanel *this,char *path,int width,int height)
+typedef int(__thiscall* DrawPanel)(int param_1_00, char* path, int width, int height);
+static DrawPanel fnDrawPanel = (DrawPanel)0x004b0ff0;
+
 const char* customScreenOptionsText = "Custom [Hook]";
 
 const char* SECTION = "Screen";
@@ -67,6 +73,7 @@ int screenBitdepth = DEFAULT_SCREEN_BITDEPTH;
 float screenUIScale;
 float screenUIWidthScale;
 float rightSideShift;
+float halfRightSideShift;
 
 static __declspec(naked) void SkipScreenOptionsListHook(void) {
 	// Screen options' hWnd is stored in ECX
@@ -95,6 +102,30 @@ static __declspec(naked) void SkipScreenOptionsListHook(void) {
 	}
 }
 
+static void FixDamageVisualizerPlacement(void) {
+	/// TODO: replace this weird address manipulation with some structs.
+
+	char buf[256];
+
+	for (int i = 1; i <= 6; i++) {
+		sprintf(buf, "hud_strefa_%i.tga", i);
+		DWORD ptrHudStrefa = pFixUISomeStruct + 0xd50 + (i - 1) * 172;
+		fnDrawTexture(ptrHudStrefa, buf, SCALED_RECTV(868, 368, 1060, 568), -0x7f7f3f80);
+
+		DWORD ptrHudStrefaInt = pFixUISomeStruct + 0x414 + (i - 1) * 4;
+		*(int*)ptrHudStrefa = 0;
+	}
+
+	for (int i = 1; i <= 4; i++) {
+		sprintf(buf, "hud_strefa_kolo_%i.tga", i);
+		DWORD ptrHudStrefa = pFixUISomeStruct + 0x1158 + (i - 1) * 172;
+		fnDrawTexture(ptrHudStrefa, buf, SCALED_RECTV(868, 368, 1060, 568), -0x7f7f3f80);
+
+		DWORD ptrHudStrefaInt = pFixUISomeStruct + 0x42c + (i - 1) * 4;
+		*(int*)ptrHudStrefa = 0;
+	}
+}
+
 static __declspec(naked) void FixUIPlacementHook(void) {
 	fnDrawTexture(pFixUISomeStruct + 0x640, "hud_ico_czas.tga", SCALED_RECTV(820, 2, 1000, 92), -1);
 	fnDrawTexture(pFixUISomeStruct + 0x6ec, "hud_ico_miejsce.tga", SCALED_RECTV(820, 56, 1000, 146), -1);
@@ -112,7 +143,12 @@ static __declspec(naked) void FixUIPlacementHook(void) {
 	fnDrawTexture(pFixUISomeStruct + 0x9ac, "hud_predkosciomierz.tga", SCALED_RECTV(738, 532, 994, 788), -1);
 	fnDrawTexture(pFixUISomeStruct + 0xb04, "hud_wskazowka_predkosc.tga", 0.0f, 0.0f, 256.0f, 256.0f, -1);
 	fnDrawTexture(pFixUISomeStruct + 0xa58, "hud_wskazowka_obroty.tga", 1000.0f, 0.0f, 256.0f, 256.0f, -1);
-	/// TODO: rest of the function
+	*(int*)(pFixUISomeStruct + 0x1410) = -2;
+	fnDrawPanel(pFixUISomeStruct + 0xd18, "misc\\HUD\\hud_menu_policja.bmp", screenWidth, screenHeight);
+
+	FixDamageVisualizerPlacement();
+
+	fnDrawTexture(pFixUISomeStruct + 0x594, "hud_ico_kierunek.tga", SCALED_RECTC(384, 300, 640, 428), -1);
 
 	__asm {
 		JMP pFixUIPlacementReturn
@@ -215,9 +251,10 @@ void createHooks() {
 	Config::ReadOrDefaultFromConfig(SECTION, WIDTH_KEY, screenWidth, DEFAULT_SCREEN_WIDTH);
 	Config::ReadOrDefaultFromConfig(SECTION, HEIGHT_KEY, screenHeight, DEFAULT_SCREEN_HEIGHT);
 	Config::ReadOrDefaultFromConfig(SECTION, BITDEPTH_KEY, screenBitdepth, DEFAULT_SCREEN_BITDEPTH);
-	screenUIScale = screenHeight / 3.0f * 4.0f * 0.0009765625f;
-	screenUIWidthScale = screenWidth * 0.0009765625f;
-	rightSideShift = (SCALED_X(994) - SCALED_Y(994));
+	screenUIScale = screenHeight / 3.0f * 4.0f / 1024.0f;
+	screenUIWidthScale = screenWidth / 1024.0f;
+	rightSideShift = (screenWidth - screenHeight / 3.0f * 4.0f);
+	halfRightSideShift = rightSideShift / 2.0f;
 
 	// disable setting screen options (width, height, bitdepth) & ui scale by the game
 	ReplaceWithNoOp(0x004021f3, 6);	 // sets screen height from the start menu
