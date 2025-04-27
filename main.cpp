@@ -34,7 +34,7 @@ static DWORD pFixGaugesPlacementCalls[] = {
 	0x0040ba89, // Fuel
 };
 
-static DWORD pFixRaceTextPlacementSomeFn = 0x0044e070;
+static DWORD pFixRaceTextPlacementDrawFn = 0x0044e070;
 static DWORD pFixRaceTextPlacementCalls[] = {
 	0x0040aba7,
 	0x0040abe0,
@@ -49,6 +49,8 @@ static DWORD pFixRaceTextPlacementCalls[] = {
 	0x004a7266,
 	0x004a72a1
 };
+
+static DWORD pFixRaceCountdownPlacementCall = 0x004792d7;
 
 //void __thiscall drawTexture(UIElement *this,char *path,float x1,float y1,float x2,float y2,int flags)
 typedef void(__thiscall* DrawTexture)(UIElement* param_1_00, char* path, float x1, float y1, float x2, float y2, int flags);
@@ -172,7 +174,17 @@ static __declspec(naked) void FixRaceTextPlacementHook(void) {
 		ADDSS xmm0, [esp + 8]
 		MOVSS[esp + 8], xmm0
 
-		JMP pFixRaceTextPlacementSomeFn
+		JMP pFixRaceTextPlacementDrawFn
+	}
+}
+
+static __declspec(naked) void FixRaceCountdownPlacementHook(void) {
+	__asm {
+		MOVSS xmm0, halfRightSideShift
+		ADDSS xmm0, [esp + 8]
+		MOVSS[esp + 8], xmm0
+
+		JMP pFixRaceTextPlacementDrawFn
 	}
 }
 
@@ -202,6 +214,7 @@ void createHooks() {
 	HooksHelper::PrimitiveHookFunction(pFixUIPlacementJump, (DWORD)FixUIPlacementHook, 5);
 	HooksHelper::HookMultipleCallBasedFunctions(pFixGaugesPlacementCalls, sizeof(pFixGaugesPlacementCalls) / sizeof(DWORD), (DWORD)FixGaugesPlacementHook);
 	HooksHelper::HookMultipleCallBasedFunctions(pFixRaceTextPlacementCalls, sizeof(pFixRaceTextPlacementCalls) / sizeof(DWORD), (DWORD)FixRaceTextPlacementHook);
+	HooksHelper::PrimitiveHookFunction(pFixRaceCountdownPlacementCall, (DWORD)FixRaceCountdownPlacementHook, 5, true);
 
 	// write new screen options to the game
 	*(int*)pScreenWidth = screenWidth;
